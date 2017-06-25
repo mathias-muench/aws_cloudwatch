@@ -2,18 +2,24 @@
 import boto.ec2.cloudwatch
 import datetime
 import time
+import sys
+
 #import pprint
-c = boto.ec2.cloudwatch.connect_to_region('eu-central-1')
+
+c = boto.ec2.cloudwatch.connect_to_region(boto.ec2.cloudwatch.CloudWatchConnection.DefaultRegionName)
+
 namespace = 'AWS/RDS'
-metrics = c.list_metrics(namespace=namespace)
-ids = set(map(lambda z: z.get('DBInstanceIdentifier')[0], [ y.dimensions for y in metrics if y.dimensions.get('DBInstanceIdentifier') ]))
-end=datetime.datetime.utcnow() - datetime.timedelta(minutes=1)
-start =  end - datetime.timedelta(minutes=5)
-for i in ids:
-    print "<<<<%s_%s>>>>" % (namespace.replace("/", "_"), i)
-    print "<<<AWS_RDS>>>"
-    datapoints = [ (z, z.query(start, end, z.Statistics, None, 300)) for z in metrics if z.dimensions.get('DBInstanceIdentifier') == [ i ]]
-    for (m, q) in datapoints:
-        if (q):
-            print m.name, q[0]['Unit'], q[0]['Timestamp'].isoformat(), q[0]['SampleCount'], q[0]['Average'], q[0]['Maximum'], q[0]['Minimum'], q[0]['Sum']
-    print "<<<<>>>>"
+idDimension = sys.argv[1]
+
+metrics = c.list_metrics(namespace=namespace, dimensions={ 'DBInstanceIdentifier' : idDimension })
+
+end=datetime.datetime.utcnow()
+start =  end - datetime.timedelta(seconds=600)
+
+print "<<<cloudwatch>>>"
+
+datapoints = [ (m, m.query(start, end, m.Statistics, None)) for m in metrics ]
+for (m, q) in datapoints:
+    if (q):
+        r = sorted(q, key = lambda k: k['Timestamp'], reverse = True)[0]
+	print m.name, r['Timestamp'].isoformat(), r['SampleCount'], r['Unit'], r['Average'], r['Maximum'], r['Minimum'], r['Sum']
