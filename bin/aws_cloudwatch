@@ -4,22 +4,34 @@ import datetime
 import time
 import sys
 
-#import pprint
+import pprint
 
-c = boto.ec2.cloudwatch.connect_to_region(boto.ec2.cloudwatch.CloudWatchConnection.DefaultRegionName)
+namespace =  sys.argv[1]
+dimension = dict([ sys.argv[2].split(".")[0].split("=") ])
+region = boto.ec2.cloudwatch.CloudWatchConnection.DefaultRegionName
 
-namespace = 'AWS/RDS'
-idDimension = sys.argv[1]
+if namespace == "AWS/EC2":
+    # Note: This check only works in an OMD environment!
+    sys.path.append(os.path.expanduser("~/share/check_mk/modules"))
+    execfile(os.path.expanduser("~/etc/check_mk/defaults"))
+    execfile(os.path.expanduser("~/share/check_mk/modules/prediction.py"))
+    execfile(os.path.expanduser("~/share/check_mk/modules/check_mk_base.py"))
 
-metrics = c.list_metrics(namespace=namespace, dimensions={ 'DBInstanceIdentifier' : idDimension })
+    response = simple_livestatus_query("GET hosts\nColumns: alias\nFilter: name = nginx.resisand.cbs.boschsecurity.com\n")
+    pprint.pprint(response)
 
-end=datetime.datetime.utcnow()
-start =  end - datetime.timedelta(seconds=600)
+c = boto.ec2.cloudwatch.connect_to_region(region)
 
-print "<<<cloudwatch>>>"
+metrics = c.list_metrics(namespace=namespace, dimensions=dimension)
 
-datapoints = [ (m, m.query(start, end, m.Statistics, None)) for m in metrics ]
-for (m, q) in datapoints:
-    if (q):
-        r = sorted(q, key = lambda k: k['Timestamp'], reverse = True)[0]
-	print m.name, r['Timestamp'].isoformat(), r['SampleCount'], r['Unit'], r['Average'], r['Maximum'], r['Minimum'], r['Sum']
+if metrics:
+    end=datetime.datetime.utcnow()
+    start =  end - datetime.timedelta(seconds=900)
+
+    print "<<<aws_cloudwatch>>>"
+
+    datapoints = [ (m, m.query(start, end, m.Statistics, None)) for m in metrics ]
+    for (m, q) in datapoints:
+        if q and m.name != "SentMessageSize":
+            r = sorted(q, key = lambda k: k['Timestamp'], reverse = True)[0]
+            print m.name, r['Timestamp'].strftime("%s"), r['SampleCount'], r['Unit'], r['Average'], r['Maximum'], r['Minimum'], r['Sum']
