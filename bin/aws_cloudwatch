@@ -133,11 +133,11 @@ metrics = c.list_metrics(namespace=namespace, dimensions=dimension)
 
 if metrics:
     end=datetime.datetime.utcnow()
-    start =  end - datetime.timedelta(seconds=900)
+    start =  end - datetime.timedelta(minutes = opt_interval)
 
     print "<<<aws_cloudwatch>>>"
 
-    datapoints = [ (m, m.query(start, end, m.Statistics, None)) for m in metrics ]
+    datapoints = [ (m, m.query(start, end, m.Statistics, None, opt_period * 60)) for m in metrics ]
     for (m, q) in datapoints:
         if q and m.name != "SentMessageSize":
             r = sorted(q, key = lambda k: k['Timestamp'], reverse = True)[0]
