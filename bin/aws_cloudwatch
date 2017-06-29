@@ -116,7 +116,7 @@ else:
 socket.setdefaulttimeout(opt_timeout)
 region = boto.ec2.cloudwatch.CloudWatchConnection.DefaultRegionName
 
-if namespace == "AWS/EC2":
+if opt_agent:
     response = simple_livestatus_query("GET hosts\nColumns: alias address\nFilter: name = %s\n" % dim_arg)
     dim_value, ip = response.strip().split(";")
     print get_agent_info_tcp(ip)
