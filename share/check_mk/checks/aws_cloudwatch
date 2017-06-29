@@ -1,0 +1,34 @@
+# vi:sw=4:ts=4:et:ai
+
+factory_settings["aws_cloudwatch_default_levels"] = {
+    'levels': (-1e38, -1e38, 1e38, 1e38),
+}
+
+def inventory_aws_cloudwatch(info):
+    for line in info:
+        yield line[0], None
+
+def check_aws_cloudwatch(item, params, info):
+    for line in info:
+        if line[0] == item:
+            value = float(line[4])
+            unit = line[3]
+            lolo, lo, hi, hihi = params['levels']
+            if value <= lolo or value >= hihi:
+               s = 2
+            elif value <= lo or value >= hi:
+               s = 1
+            else:
+               s = 0
+            perfdata = [ ( "value", value ) ]
+            return s, "%f %s" % ( value, unit ), perfdata
+
+# declare the check to Check_MK
+check_info["aws_cloudwatch"] = {
+    'default_levels_variable':   'aws_cloudwatch_default_levels',
+    'check_function':            check_aws_cloudwatch,
+    'inventory_function':        inventory_aws_cloudwatch,
+    'service_description':       'AWS Cloudwatch %s',
+    'has_perfdata':              True,
+    'group':                     'aws_cloudwatch',
+}
