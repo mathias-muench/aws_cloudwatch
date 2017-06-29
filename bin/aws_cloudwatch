@@ -132,8 +132,8 @@ if metrics:
 
     print "<<<aws_cloudwatch>>>"
 
-    datapoints = [ (m, c.get_metric_statistics(Namespace = namespace,  Dimensions = m['Dimensions'], MetricName = m['MetricName'], StartTime = start, EndTime = end, Period = opt_period * 60, Statistics = [ 'SampleCount', 'Average', 'Sum', 'Minimum', 'Maximum', ])) for m in metrics['Metrics'] ]
-    for m, q in datapoints:
-        if q['Datapoints'] and m['MetricName'] != "SentMessageSize":
+    datapoints = [ c.get_metric_statistics(Namespace = m['Namespace'],  Dimensions = m['Dimensions'], MetricName = m['MetricName'], StartTime = start, EndTime = end, Period = opt_period * 60, Statistics = [ 'SampleCount', 'Average', 'Sum', 'Minimum', 'Maximum', ]) for m in metrics['Metrics'] ]
+    for q in datapoints:
+        if q['Datapoints'] and q['Label'] != "SentMessageSize":
             r = sorted(q['Datapoints'], key = lambda k: k['Timestamp'], reverse = True)[0]
-            print m['MetricName'], r['Timestamp'].strftime("%s"), r['SampleCount'], r['Unit'], r['Average'], r['Maximum'], r['Minimum'], r['Sum']
+            print q['Label'], r['Timestamp'].strftime("%s"), r['SampleCount'], r['Unit'], r['Average'], r['Maximum'], r['Minimum'], r['Sum']
