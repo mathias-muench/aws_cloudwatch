@@ -28,6 +28,7 @@ OPTIONS:
   -t, --timeout SECS              Set the network timeout when connecting the agent (option -a).
                                   Default is 60 seconds.
   --debug                         Debug mode: let Python exceptions come through
+  --profile PROFILE               AWS profile to use
   -i MINUTES, --interval MIUNTES  metric query time interval, default is 15 minutes
 
 """)
@@ -75,7 +76,7 @@ def get_agent_info_tcp(address):
 
 short_options = 'hi:at:p:'
 long_options  = [
-    'help', 'agent', 'debug', 'timeout=', "period=", "interval="
+    'help', 'agent', 'debug', 'timeout=', "period=", "interval=", "profile="
 ]
 
 opt_debug               = False
@@ -83,6 +84,7 @@ opt_agent               = False
 opt_timeout             = 60
 opt_period              = 1
 opt_interval            = 15
+opt_profile             = None
 livestatus_unix_socket  = os.path.expanduser("~/tmp/run/live")
 
 try:
@@ -94,6 +96,8 @@ except getopt.GetoptError, err:
 for o,a in opts:
     if o in [ '--debug' ]:
         opt_debug = True
+    if o in [ '--profile' ]:
+        opt_profile = a
     elif o in [ '-a', '--agent' ]:
         opt_agent = True
     elif o in [ '-p', '--period' ]:
@@ -122,7 +126,8 @@ if opt_agent:
 else:
     dim_value = dim_arg.split(".")[0]
 
-c = boto3.client('cloudwatch')
+session = boto3.Session(profile_name=opt_profile)
+c = session.client('cloudwatch')
 
 metrics = c.list_metrics(Namespace = namespace, Dimensions = [ { 'Name':dim_key, 'Value': dim_value } ])
 
