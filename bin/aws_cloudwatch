@@ -32,6 +32,47 @@ OPTIONS:
 
 """)
 
+def simple_livestatus_query(lql):
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    s.connect(livestatus_unix_socket)
+    s.send(lql)
+    s.shutdown(socket.SHUT_WR)
+    response = ""
+    while True:
+        chunk = s.recv(4096)
+        if not chunk:
+            break
+        response += chunk
+    return response
+
+def get_agent_info_tcp(address):
+    response = ""
+    try:
+        ipaddress = socket.gethostbyname(address)
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            s.settimeout(opt_timeout)
+        except:
+            pass # some old Python versions lack settimeout(). Better ignore than fail
+        s.connect((ipaddress, 6556))
+        try:
+            s.setblocking(1)
+        except:
+            pass
+        response = ""
+        while True:
+            out = s.recv(4096, socket.MSG_WAITALL)
+            if out and len(out) > 0:
+                response += out
+            else:
+                break
+        s.close()
+        return response
+    except Exception, e:
+        if opt_debug:
+            raise
+    return response
+
 short_options = 'hi:at:p:'
 long_options  = [
     'help', 'agent', 'debug', 'timeout=', "period=", "interval="
@@ -42,9 +83,7 @@ opt_agent               = False
 opt_timeout             = 60
 opt_period              = 1
 opt_interval            = 15
-
-error = None
-error_exit = 1
+livestatus_unix_socket  = os.path.expanduser("~/tmp/run/live")
 
 try:
     opts, args = getopt.getopt(sys.argv[1:], short_options, long_options)
@@ -75,55 +114,13 @@ else:
     sys.exit(1)
 
 socket.setdefaulttimeout(opt_timeout)
-def my_get_agent_info_tcp(hostname):
-    response = ""
-    try:
-        # TODO: gethostbyname() automatically detects IP addresses and does
-        # *not* contact any nameserver in that case. So the following two
-        # lines of code should not be neccessary:
-        if hostname[0] in "123456789":
-            ipaddress = hostname
-        else:
-            ipaddress = socket.gethostbyname(hostname)
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        try:
-            s.settimeout(opt_timeout)
-        except:
-            pass # some old Python versions lack settimeout(). Better ignore than fail
-        s.connect((ipaddress, 6556))
-        try:
-            s.setblocking(1)
-        except:
-            pass
-        response = ""
-        while True:
-            out = s.recv(4096, socket.MSG_WAITALL)
-            if out and len(out) > 0:
-                response += out
-            else:
-                break
-        s.close()
-        return response
-    except Exception, e:
-        if opt_debug:
-            raise
-    return response
-
 region = boto.ec2.cloudwatch.CloudWatchConnection.DefaultRegionName
 
 if namespace == "AWS/EC2":
-    # Note: This check only works in an OMD environment!
-    sys.path.append(os.path.expanduser("~/share/check_mk/modules"))
-    execfile(os.path.expanduser("~/etc/check_mk/defaults"))
-    execfile(os.path.expanduser("~/share/check_mk/modules/prediction.py"))
-    execfile(os.path.expanduser("~/share/check_mk/modules/check_mk_base.py"))
-
     response = simple_livestatus_query("GET hosts\nColumns: alias address\nFilter: name = %s\n" % arg_dimension)
-    id, ip = response.strip().split(";")
-    pprint.pprint(id)
-    pprint.pprint(ip)
-    dimension = { "InstanceId": id }
-    print my_get_agent_info_tcp(ip)
+    alias, ip = response.strip().split(";")
+    dimension = { "InstanceId": alias }
+    print get_agent_info_tcp(ip)
 else:
     dimension = dict([ arg_dimension.split(".")[0].split("=") ])
 
