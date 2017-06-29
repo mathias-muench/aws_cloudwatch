@@ -1,5 +1,5 @@
 # aws_cloudwatch
-
+```
 Check_MK AWS Cloudwatch Data Source
 
 USAGE: aws_cloudwatch [OPTIONS] NAMESPACE DIMENSION
@@ -19,3 +19,4 @@ OPTIONS:
                                   Default is 60 seconds.
   --debug                         Debug mode: let Python exceptions come through
   -i MINUTES, --interval MIUNTES  metric query time interval, default is 15 minutes
+```
