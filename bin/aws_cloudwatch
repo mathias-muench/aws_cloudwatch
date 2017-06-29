@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import boto.ec2.cloudwatch
+import boto3
 import datetime
 import time
 import sys
@@ -114,7 +114,6 @@ else:
     sys.exit(1)
 
 socket.setdefaulttimeout(opt_timeout)
-region = boto.ec2.cloudwatch.CloudWatchConnection.DefaultRegionName
 
 if opt_agent:
     response = simple_livestatus_query("GET hosts\nColumns: alias address\nFilter: name = %s\n" % dim_arg)
@@ -123,9 +122,9 @@ if opt_agent:
 else:
     dim_value = dim_arg.split(".")[0]
 
-c = boto.ec2.cloudwatch.connect_to_region(region)
+c = boto3.client('cloudwatch')
 
-metrics = c.list_metrics(namespace=namespace, dimensions = { dim_key: dim_value })
+metrics = c.list_metrics(Namespace = namespace, Dimensions = [ { 'Name':dim_key, 'Value': dim_value } ])
 
 if metrics:
     end=datetime.datetime.utcnow()
@@ -133,8 +132,8 @@ if metrics:
 
     print "<<<aws_cloudwatch>>>"
 
-    datapoints = [ (m, m.query(start, end, m.Statistics, None, opt_period * 60)) for m in metrics ]
-    for (m, q) in datapoints:
-        if q and m.name != "SentMessageSize":
-            r = sorted(q, key = lambda k: k['Timestamp'], reverse = True)[0]
-            print m.name, r['Timestamp'].strftime("%s"), r['SampleCount'], r['Unit'], r['Average'], r['Maximum'], r['Minimum'], r['Sum']
+    datapoints = [ (m, c.get_metric_statistics(Namespace = namespace,  Dimensions = m['Dimensions'], MetricName = m['MetricName'], StartTime = start, EndTime = end, Period = opt_period * 60, Statistics = [ 'SampleCount', 'Average', 'Sum', 'Minimum', 'Maximum', ])) for m in metrics['Metrics'] ]
+    for m, q in datapoints:
+        if q['Datapoints'] and m['MetricName'] != "SentMessageSize":
+            r = sorted(q['Datapoints'], key = lambda k: k['Timestamp'], reverse = True)[0]
+            print m['MetricName'], r['Timestamp'].strftime("%s"), r['SampleCount'], r['Unit'], r['Average'], r['Maximum'], r['Minimum'], r['Sum']
