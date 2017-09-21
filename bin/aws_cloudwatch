@@ -121,12 +121,22 @@ socket.setdefaulttimeout(opt_timeout)
 
 if opt_agent:
     response = simple_livestatus_query("GET hosts\nColumns: alias address\nFilter: name = %s\n" % dim_arg)
-    dim_value, ip = response.strip().split(";")
+    dim_arg, ip = response.strip().split(";")
     print get_agent_info_tcp(ip)
-else:
-    dim_value = dim_arg.split(".")[0]
+
+dim_array = dim_arg.split(".")
+dim_value = dim_array[0]
 
 session = boto3.Session(profile_name=opt_profile)
+if len(dim_array) > 2:
+    sts = session.client('sts')
+    assumed_role = sts.assume_role(RoleArn = "arn:aws:iam::%s:role/CheckMK" % dim_array[2], RoleSessionName = "CheckMK")
+    session = boto3.Session(
+        aws_access_key_id = assumed_role['Credentials']['AccessKeyId'],
+        aws_secret_access_key = assumed_role['Credentials']['SecretAccessKey'],
+        aws_session_token = assumed_role['Credentials']['SessionToken']
+    )
+
 c = session.client('cloudwatch')
 
 metrics = c.list_metrics(Namespace = namespace, Dimensions = [ { 'Name':dim_key, 'Value': dim_value } ])
