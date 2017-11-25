@@ -139,7 +139,11 @@ if len(dim_array) > 2:
 
 c = session.client('cloudwatch')
 
-metrics = c.list_metrics(Namespace = namespace, Dimensions = [ { 'Name':dim_key, 'Value': dim_value } ])
+metrics = []
+if namespace == "AWS/EC2":
+	metrics.append(c.list_metrics(Namespace = namespace, Dimensions = [ { 'Name':dim_key, 'Value': dim_value } ], MetricName = "CPUCreditBalance"))
+else:
+	metrics.append(c.list_metrics(Namespace = namespace, Dimensions = [ { 'Name':dim_key, 'Value': dim_value } ]))
 
 if metrics:
     end=datetime.datetime.utcnow()
@@ -147,8 +151,9 @@ if metrics:
 
     print "<<<aws_cloudwatch>>>"
 
-    datapoints = [ c.get_metric_statistics(Namespace = m['Namespace'],  Dimensions = m['Dimensions'], MetricName = m['MetricName'], StartTime = start, EndTime = end, Period = opt_period * 60, Statistics = [ 'SampleCount', 'Average', 'Sum', 'Minimum', 'Maximum', ]) for m in metrics['Metrics'] ]
-    for q in datapoints:
-        if q['Datapoints'] and q['Label'] != "SentMessageSize":
-            r = sorted(q['Datapoints'], key = lambda k: k['Timestamp'], reverse = True)[0]
-            print q['Label'], r['Timestamp'].strftime("%s"), r['SampleCount'], r['Unit'], r['Average'], r['Maximum'], r['Minimum'], r['Sum']
+    for metric in metrics:
+	    datapoints = [ c.get_metric_statistics(Namespace = m['Namespace'],  Dimensions = m['Dimensions'], MetricName = m['MetricName'], StartTime = start, EndTime = end, Period = opt_period * 60, Statistics = [ 'SampleCount', 'Average', 'Sum', 'Minimum', 'Maximum', ]) for m in metric['Metrics'] ]
+	    for q in datapoints:
+		if q['Datapoints'] and q['Label'] != "SentMessageSize":
+		    r = sorted(q['Datapoints'], key = lambda k: k['Timestamp'], reverse = True)[0]
+		    print q['Label'], r['Timestamp'].strftime("%s"), r['SampleCount'], r['Unit'], r['Average'], r['Maximum'], r['Minimum'], r['Sum']
