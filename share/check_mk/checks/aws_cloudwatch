@@ -9,6 +9,7 @@ def inventory_aws_cloudwatch(info):
         yield line[0], None
 
 def check_aws_cloudwatch(item, params, info):
+    result = (0, "insufficient data")
     for line in info:
         if line[0] == item:
             value = float(line[4])
@@ -21,7 +22,8 @@ def check_aws_cloudwatch(item, params, info):
             else:
                s = 0
             perfdata = [ ( "value", value ) ]
-            return s, "%f %s" % ( value, unit ), perfdata
+            result = (s, "%f %s" % ( value, unit ), perfdata)
+    return result
 
 # declare the check to Check_MK
 check_info["aws_cloudwatch"] = {
