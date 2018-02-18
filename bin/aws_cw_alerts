@@ -1,0 +1,17 @@
+#!/usr/bin/env python
+# vi:autoindent:expandtab:shiftwidth=4:tabstop=4
+
+import boto3
+
+#import pprint
+
+cloudwatch = boto3.client('cloudwatch')
+
+paginator = cloudwatch.get_paginator('describe_alarms')
+for response in paginator.paginate():
+    #pprint.pprint(response)
+    for i in response['MetricAlarms']:
+        print "<<<<%s.%s.135700477306>>>>" % (i['Dimensions'][0]['Value'], i['Namespace'].replace('/', '_'))
+        print "<<<local>>>"
+        print "0 AWSCW/%s - %s" % (i['AlarmName'], i['StateReason'])
+        print "<<<<>>>>"
