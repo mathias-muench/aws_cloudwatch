@@ -3,9 +3,25 @@
 
 import sys
 import getopt
+import os
+import socket
 import boto3
 
 #import pprint
+
+def simple_livestatus_query(lql):
+    livestatus_unix_socket  = os.path.expanduser("~/tmp/run/live")
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    s.connect(livestatus_unix_socket)
+    s.send(lql)
+    s.shutdown(socket.SHUT_WR)
+    response = ""
+    while True:
+        chunk = s.recv(4096)
+        if not chunk:
+            break
+        response += chunk
+    return response
 
 def get_alarms(session, account):
     cloudwatch = session.client('cloudwatch')
@@ -15,9 +31,11 @@ def get_alarms(session, account):
         #pprint.pprint(response)
         for i in response['MetricAlarms']:
             piggy_name = ".".join(filter(None, [i['Dimensions'][0]['Value'], i['Namespace'].replace('/', '_'), account]))
+            if i['Namespace'] == "AWS/EC2":
+                piggy_name = simple_livestatus_query("GET hosts\nColumns: name\nFilter: alias = %s\n" % piggy_name).strip()
             print "<<<<%s>>>>" % piggy_name
             print "<<<local>>>"
-            print "0 AWSCW/%s - %s - %s" % (i['AlarmName'], i['StateValue'], i['StateReason'])
+            print "0 AWSCW/%s - %s - %s" % (i['AlarmName'].split('/', 1)[-1].strip().replace(' ', '_'), i['StateValue'], i['StateReason'])
             print "<<<<>>>>"
 
 short_options = 'a:'
