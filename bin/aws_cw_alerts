@@ -13,5 +13,5 @@ for response in paginator.paginate():
     for i in response['MetricAlarms']:
         print "<<<<%s.%s.135700477306>>>>" % (i['Dimensions'][0]['Value'], i['Namespace'].replace('/', '_'))
         print "<<<local>>>"
-        print "0 AWSCW/%s - %s" % (i['AlarmName'], i['StateReason'])
+        print "0 AWSCW/%s - %s - %s" % (i['AlarmName'], i['StateValue'], i['StateReason'])
         print "<<<<>>>>"
