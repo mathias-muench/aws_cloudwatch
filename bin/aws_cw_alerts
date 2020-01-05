@@ -6,8 +6,27 @@ import getopt
 import os
 import socket
 import boto3
+import unittest
+import json
 
-#import pprint
+
+def alarm_name(cw):
+    crit = 0
+    if cw.endswith('_WARN'):
+        cw = cw[:-5]
+        crit = 1
+    if cw.endswith('_CRIT'):
+        cw = cw[:-5]
+        crit = 2
+    return (cw.split('/')[-1].strip().replace(' ', '_'), crit)
+
+class TestNameModule(unittest.TestCase):
+    def test_alarm_name(self):
+        self.assertEqual(alarm_name('Retailde - cli/CPUCreditBalance'), ('CPUCreditBalance', 0))
+        self.assertEqual(alarm_name('Retailde - cli/CPUCreditBalance_WARN'), ('CPUCreditBalance', 1))
+        self.assertEqual(alarm_name('Retailde - cli/CPUCreditBalance_CRIT'), ('CPUCreditBalance', 2))
+
+# unittest.main()
 
 def simple_livestatus_query(lql):
     livestatus_unix_socket  = os.path.expanduser("~/tmp/run/live")
@@ -23,19 +42,35 @@ def simple_livestatus_query(lql):
         response += chunk
     return response
 
+def perfData(response, crit):
+    perfData = "-"
+    if "StateReasonData" in response:
+        stateReasonData = json.loads(response["StateReasonData"])
+        if stateReasonData["recentDatapoints"]:
+            perfData = ("%s=%s;;%s;" if crit == 2 else "%s=%s;%s;;") % (stateReasonData["statistic"], stateReasonData["recentDatapoints"][0], stateReasonData["threshold"])
+    return perfData
+
 def get_alarms(session, account):
     cloudwatch = session.client('cloudwatch')
 
+    alarms = {}
     paginator = cloudwatch.get_paginator('describe_alarms')
     for response in paginator.paginate():
-        #pprint.pprint(response)
         for i in response['MetricAlarms']:
-            host_name = ".".join(filter(None, [i['Dimensions'][0]['Value'], i['Namespace'].replace('/', '_'), account]))
+            host_name = ".".join(filter(None, [i['Dimensions'][0]['Value'] if i['Dimensions'] else i['MetricName'].rsplit('/', 1)[0].replace('/', '-'), i['Namespace'].replace('/', '_'), account]))
             piggy_name = simple_livestatus_query("GET hosts\nColumns: name\nFilter: alias = %s\n" % host_name).strip() or host_name
-            print "<<<<%s>>>>" % piggy_name
-            print "<<<local>>>"
-            print "0 AWSCW/%s - %s - %s" % (i['AlarmName'].split('/', 1)[-1].strip().replace(' ', '_'), i['StateValue'], i['StateReason'])
-            print "<<<<>>>>"
+            (name, crit) = alarm_name(i['AlarmName'])
+            stat = crit if i['StateValue'] == 'ALARM' else 0
+            if (piggy_name, name) not in alarms or alarms[(piggy_name, name)][0] < stat:
+                alarms[(piggy_name, name)] = (stat, i['StateValue'], i['StateReason'], perfData(i, crit))
+
+    for i in alarms:
+        (piggy_name, name) = i
+        (stat, StateValue, StateReason, perf) = alarms[i]
+        print "<<<<%s>>>>" % piggy_name
+        print "<<<local>>>"
+        print "%d AWSCW/%s %s %s - %s" % (stat, name, perf, StateValue, StateReason)
+        print "<<<<>>>>"
 
 short_options = 'a:'
 long_options  = [
@@ -56,6 +91,9 @@ for o,a in opts:
 
 if len(args) != 0:
     sys.exit(1)
+
+print "<<<local>>>"
+print "0 Mein_piggyback_localcheck - TEST TEST TEST"
 
 session = boto3.Session()
 if opt_accounts:
