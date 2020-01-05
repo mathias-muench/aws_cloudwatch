@@ -30,9 +30,8 @@ def get_alarms(session, account):
     for response in paginator.paginate():
         #pprint.pprint(response)
         for i in response['MetricAlarms']:
-            piggy_name = ".".join(filter(None, [i['Dimensions'][0]['Value'], i['Namespace'].replace('/', '_'), account]))
-            if i['Namespace'] == "AWS/EC2":
-                piggy_name = simple_livestatus_query("GET hosts\nColumns: name\nFilter: alias = %s\n" % piggy_name).strip()
+            host_name = ".".join(filter(None, [i['Dimensions'][0]['Value'], i['Namespace'].replace('/', '_'), account]))
+            piggy_name = simple_livestatus_query("GET hosts\nColumns: name\nFilter: alias = %s\n" % host_name).strip() or host_name
             print "<<<<%s>>>>" % piggy_name
             print "<<<local>>>"
             print "0 AWSCW/%s - %s - %s" % (i['AlarmName'].split('/', 1)[-1].strip().replace(' ', '_'), i['StateValue'], i['StateReason'])
